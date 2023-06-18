@@ -15,7 +15,7 @@ class {
         }
     }
 
-    public async get(String tableName, HashMap<String, String> key) => null {
+    public async get(String tableName, HashMap<String, String> key) -> HashMap<String, Object> {
         native var Object item
 
         external {
