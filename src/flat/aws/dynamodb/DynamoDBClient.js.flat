@@ -34,6 +34,23 @@ class {
         return HashMap.jsObjectToFlatHashMap(item)
     }
 
+    public async delete(String tableName, HashMap<String, String> key) -> Int {
+        native var Object item
+
+        external {
+            const command = new #{Global.libDynamoDB}.DeleteCommand({
+                TableName: #{tableName.chars.data},
+                Key: #{key.toJsObject()},
+            });
+
+            const response = await #{docClient}.send(command);
+
+            return response.$metadata.httpStatusCode;
+        }
+
+        return -1
+    }
+
     public async put(String tableName, HashMap<String, String> item) -> Int {
         external {
             const command = new #{Global.libDynamoDB}.PutCommand({
