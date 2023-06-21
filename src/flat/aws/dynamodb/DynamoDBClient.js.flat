@@ -1,6 +1,7 @@
 package flat/aws/dynamodb
 
 import flat/datastruct
+import flat/time
 
 import static flat/node/import/Import
 
@@ -8,15 +9,19 @@ class {
     native Object client
     native Object docClient
 
-    public construct() {
+    public construct(HashMap<String, Object> config = null) {
+        log.debug("Constructing DynamoDBClient with config: #{config}")
         external {
-            #{client} = new #{Global.clientDynamoDB}.DynamoDBClient({});
+            const clientConfig = #{config == null} ? {} : #{HashMap.jsObjectToFlatHashMap(config)};
+            #{client} = new #{Global.clientDynamoDB}.DynamoDBClient(clientConfig);
             #{docClient} = #{Global.libDynamoDB}.DynamoDBDocumentClient.from(#{client});
         }
     }
 
     public async get(String tableName, HashMap<String, String> key) -> HashMap<String, Object> {
+        log.debug("Fetching item from table #{tableName} with key #{key}")
         native var Object item
+        let start = Time.currentTimeMillis
 
         external {
             const command = new #{Global.libDynamoDB}.GetCommand({
@@ -25,17 +30,27 @@ class {
             });
 
             const response = await #{docClient}.send(command);
+            #{let duration = Time.currentTimeMillis - start};
 
             item = response.Item;
 
-            if (!item) return #{null};
+            if (!item) {
+                #{log.debug("No item from table #{tableName} with key #{key} (took #{duration}ms)")};
+
+                return #{null};
+            }
         }
+
+        log.debug("Fetched item from table #{tableName} with key #{key} (took #{duration}ms)")
 
         return HashMap.jsObjectToFlatHashMap(item)
     }
 
     public async delete(String tableName, HashMap<String, String> key) -> Int {
+        log.debug("Deleting item from table #{tableName} with key #{key}")
         native var Object item
+        var Int responseCode
+        let start = Time.currentTimeMillis
 
         external {
             const command = new #{Global.libDynamoDB}.DeleteCommand({
@@ -44,14 +59,22 @@ class {
             });
 
             const response = await #{docClient}.send(command);
+            #{let duration = Time.currentTimeMillis - start};
+            #{responseCode} = response.$metadata.httpStatusCode;
 
-            return response.$metadata.httpStatusCode;
+            #{log.debug("Deleted item from table #{tableName} with key #{key} with response code #{responseCode} (took #{duration}ms)")};
+
+            return responseCode;
         }
 
         return -1
     }
 
     public async put(String tableName, HashMap<String, String> item) -> Int {
+        log.debug("Putting item into table #{tableName}")
+        var Int responseCode
+        let start = Time.currentTimeMillis
+
         external {
             const command = new #{Global.libDynamoDB}.PutCommand({
                 TableName: #{tableName.chars.data},
@@ -59,8 +82,12 @@ class {
             });
 
             const response = await #{docClient}.send(command);
+            #{let duration = Time.currentTimeMillis - start};
+            #{responseCode} = response.$metadata.httpStatusCode;
 
-            return response.$metadata.httpStatusCode;
+            #{log.debug("Put item into table #{tableName} with response code #{responseCode} (took #{duration}ms)")};
+
+            return responseCode;
         }
 
         return -1
